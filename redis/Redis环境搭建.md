@@ -77,7 +77,7 @@ docker run --name=dc-redis \
 
     使用` docker ps -a` 命令查看是否启动成功。如果发现容器状态不是 UP，可以使用` docker logs -f container-names` 来查看日志。
 
-## 2. 主从环境搭建
+## 2 主从环境搭建
 
     主从环境搭建需要多个redis服务。服务环境如下：
 
@@ -148,7 +148,7 @@ auto-aof-rewrite-min-size 64mb
 
     搭建redis主从结构是通过docker创建不同角色容器来实现的。redis从实例需要指导主实例的ip，进行主从复制。
 
-    创建docker网络
+    创建docker网络，  <mark> --subnet详情待补充</mark>
 
 ```shell
 docker network create --subnet=172.18.0.2/16 redis-ms-network
@@ -180,7 +180,7 @@ docker run --name=ms-redis-6382 \
 -itd redis:latest redis-server /etc/redis/redis.conf
 ```
 
-### 2.5 测试主从
+### 2.4 测试主从
 
     在容器启动成功后，可以先后进入redis主从客户端进行测试。
 
@@ -226,4 +226,52 @@ repl_backlog_active:1
 repl_backlog_size:1048576
 repl_backlog_first_byte_offset:198
 repl_backlog_histlen:14
+```
+
+## 3 哨兵集群模式搭建
+
+    redis中sentinel哨兵也是一个redis实例，不过sentinel不对外提供服务，而是否则对提供服务的redis实例进行监控。
+
+    这里使用2中搭建的注册环境作为提供服务的redis实例。
+
+    sentinel环境如下：
+
+| docker容器地址 | 端口    |
+| ---------- | ----- |
+| 172.18.0.5 | 16380 |
+| 172.18.0.6 | 16381 |
+| 172.18.0.7 | 16382 |
+
+### 3.1 配置哨兵
+
+    对哨兵节点进行配置。sentinel-16381.conf，sentinel-16382.conf，sentinel-16383.conf
+
+```vim
+# 设置绑定的ip
+bind 0.0.0.0
+
+# 设置端口号
+port 16380
+
+# 是否守护进程运行（后台运行）
+daemonize no
+
+# pidfile
+pidfile /var/run/redis_6380.pid
+
+# 配置redis主服务地址 2表示2个或以上sentinel才能确定主节点挂了
+sentinel monitor master 172.17.0.2 6380 2
+```
+
+### 3.2 启动容器
+
+    由于哨兵实例不会存储业务数据，所以不必挂载/data目录。
+
+    启动容器命令
+
+```shell
+docker run --name=sentinel-redis-16380 \
+-p 16380:6379 --privileged=true --ip 172.18.0.5 --net redis-ms-network \
+-v /tmp/volume/redis/conf/sentinel/sentinel-16380.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-sentinel /etc/redis/redis.conf
 ```
