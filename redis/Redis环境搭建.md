@@ -83,9 +83,9 @@ docker run --name=dc-redis \
 
 | docker容器地址:端口   | 服务类型   |
 | --------------- | ------ |
-| 172.18.0.2:5380 | master |
-| 172.18.0.3:5381 | slave  |
-| 172.18.0.4:5382 | slave  |
+| 172.18.0.2:6380 | master |
+| 172.18.0.3:6381 | slave  |
+| 172.18.0.4:6382 | slave  |
 
 ### 2.1 环境准备
 
@@ -260,7 +260,7 @@ daemonize no
 pidfile /var/run/redis_6380.pid
 
 # 配置redis主服务地址 2表示2个或以上sentinel才能确定主节点挂了
-sentinel monitor master 172.17.0.2 6380 2
+sentinel monitor master 172.18.0.2 6380 2
 ```
 
 ### 3.2 启动容器
@@ -273,5 +273,19 @@ sentinel monitor master 172.17.0.2 6380 2
 docker run --name=sentinel-redis-16380 \
 -p 16380:6379 --privileged=true --ip 172.18.0.5 --net redis-ms-network \
 -v /tmp/volume/redis/conf/sentinel/sentinel-16380.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-sentinel /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=sentinel-redis-16381 \
+-p 16381:6379 --privileged=true --ip 172.18.0.6 --net redis-ms-network \
+-v /tmp/volume/redis/conf/sentinel/sentinel-16381.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-sentinel /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=sentinel-redis-16382 \
+-p 16382:6379 --privileged=true --ip 172.18.0.7 --net redis-ms-network \
+-v /tmp/volume/redis/conf/sentinel/sentinel-16382.conf:/etc/redis/redis.conf \
 -itd redis:latest redis-sentinel /etc/redis/redis.conf
 ```
