@@ -16,7 +16,7 @@
 
     str存储模型比较简单，就是简单的k-v，一个key对应一个字符串值。
 
-![str类型存储模型图](E:\note\picture\redis\str类型存储模型.png)
+![str类型存储模型图](..\picture\redis\str类型存储模型.png)
 
 #### 1.1.2 str类型常用命令
 
@@ -66,7 +66,7 @@ append KEY VALUE
 
 #### 1.2.1 list类型的存储模型
 
-![list里类型的存储模型](E:\note\picture\redis\list类型存储模型.png)
+![list里类型的存储模型](..\picture\redis\list类型存储模型.png)
 
 #### 1.2.2 list类型常用命令
 
@@ -105,6 +105,8 @@ lindex KEY index
     hash类型就是常见的map形式k-v形式，redis本身也是通过k-v形式存储的，所以hash的存储形式类似key-(key1-v1;key2-v2)
 
 #### 1.3.1 hash类型的存储模型
+
+![hash类型的存储模型图](..\picture\redis\hash类型存储模型.png)
 
 ## 2 Redis持久化
 
