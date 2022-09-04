@@ -16,7 +16,7 @@
 
     str存储模型比较简单，就是简单的k-v，一个key对应一个字符串值。
 
-![str类型存储模型图](..\picture\redis\str类型存储模型.png)
+![str类型存储模型图](../picture/redis/str类型存储模型.png)
 
 #### 1.1.2 str类型常用命令
 
@@ -66,7 +66,7 @@ append KEY VALUE
 
 #### 1.2.1 list类型的存储模型
 
-![list里类型的存储模型](..\picture\redis\list类型存储模型.png)
+![list里类型的存储模型](../picture/redis/list类型存储模型.png)
 
 #### 1.2.2 list类型常用命令
 
@@ -106,7 +106,23 @@ lindex KEY index
 
 #### 1.3.1 hash类型的存储模型
 
-![hash类型的存储模型图](..\picture\redis\hash类型存储模型.png)
+![hash类型的存储模型图](../picture/redis/hash类型存储模型.png)
+
+#### 1.3.2 hash类型常用命令
+
+```shell
+# 为hash设置值
+hmset|hmset KEY FIELD VALUE [FIELD VALUE...]
+
+# 获取hash中属性的值
+hget KEY FIELD
+# 获取hash中多个属性的值
+hmget KEY FIELD [FIELD...]
+# 查看hash表中是否有field存在
+hexist KEY FIELD    
+
+# 
+```
 
 ## 2 Redis持久化
 
