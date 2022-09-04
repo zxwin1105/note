@@ -66,7 +66,7 @@ append KEY VALUE
 
 #### 1.2.1 list类型的存储模型
 
-![list里类型的存储模型](..\picture\redis\list类型存储模型.png)
+![list里类型的存储模型](../picture/redis/list类型存储模型.png)
 
 #### 1.2.2 list类型常用命令
 
