@@ -14,7 +14,7 @@
 
     str存储模型比较简单，就是简单的k-v，一个key对应一个字符串值。
 
-![str类型存储模型图](../picture/redis/str类型存储模型.png)
+![str类型存储模型图](..\picture\redis\str类型存储模型.png)
 
 #### 1.1.2 str类型常用命令
 
