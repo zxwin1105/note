@@ -228,7 +228,7 @@ repl_backlog_first_byte_offset:198
 repl_backlog_histlen:14
 ```
 
-## 3 哨兵集群模式搭建
+## 3 哨兵模式搭建
 
     redis中sentinel哨兵也是一个redis实例，不过sentinel不对外提供服务，而是否则对提供服务的redis实例进行监控。
 
@@ -288,4 +288,85 @@ docker run --name=sentinel-redis-16382 \
 -p 16382:6379 --privileged=true --ip 172.18.0.7 --net redis-ms-network \
 -v /tmp/volume/redis/conf/sentinel/sentinel-16382.conf:/etc/redis/redis.conf \
 -itd redis:latest redis-sentinel /etc/redis/redis.conf
+```
+
+## 4 集群模式
+
+    Redis集群模式最少需要配置3个小集群，每个小集群是一个主从模式。集群模式环境如下：
+
+| 集群  | 地址          | 端口    |
+| --- | ----------- | ----- |
+| 主从一 | 172.18.0.8  | 16379 |
+| 主从一 | 172.18.0.8  | 16380 |
+| 主从二 | 172.18.0.9  | 16379 |
+| 主从二 | 172.18.0.9  | 16380 |
+| 主从三 | 172.18.0.10 | 16379 |
+| 主从三 | 172.18.0.10 | 16380 |
+
+#### 4.1 配置文件
+
+
+
+```shell
+docker run --name=c-redis-16379 \
+-p 16379:6379  --privileged=true --ip 172.18.0.8 --net redis-ms-network \
+-v /tmp/volume/redis/data/cluster/16379:/data \
+-v /tmp/volume/redis/conf/cluster/redis-16379.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-server /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=c-redis-16380 \
+-p 16380:6379  --privileged=true --ip 172.18.0.10 --net redis-ms-network \
+-v /tmp/volume/redis/data/cluster/16380:/data \
+-v /tmp/volume/redis/conf/cluster/redis-16380.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-server /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=c-redis-16381 \
+-p 16381:6379  --privileged=true --ip 172.18.0.11 --net redis-ms-network \
+-v /tmp/volume/redis/data/cluster/16381:/data \
+-v /tmp/volume/redis/conf/cluster/redis-16381.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-server /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=c-redis-16382 \
+-p 16382:6379  --privileged=true --ip 172.18.0.12 --net redis-ms-network \
+-v /tmp/volume/redis/data/cluster/16382:/data \
+-v /tmp/volume/redis/conf/cluster/redis-16382.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-server /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=c-redis-16383 \
+-p 16383:6379  --privileged=true --ip 172.18.0.13 --net redis-ms-network \
+-v /tmp/volume/redis/data/cluster/16383:/data \
+-v /tmp/volume/redis/conf/cluster/redis-16383.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-server /etc/redis/redis.conf
+```
+
+```shell
+docker run --name=c-redis-16384 \
+-p 16384:6379  --privileged=true --ip 172.18.0.14 --net redis-ms-network \
+-v /tmp/volume/redis/data/cluster/16384:/data \
+-v /tmp/volume/redis/conf/cluster/redis-16384.conf:/etc/redis/redis.conf \
+-itd redis:latest redis-server /etc/redis/redis.conf
+```
+
+```shell
+docker exec -it c-redis-16379 redis-cli create -a zxwin --cluster
+--cluster-replicas 1 172.18.0.8:16379 172.18.0.10:16380 172.18.0.11:16381 172.18.0.12:16382 172.18.0.13:16383 172.18.0.14:16384
+```
+
+```vim
+docker exec -it c-redis-16379 redis-cli - create -a zxwin --cluster
+--cluster-replicas 1 c-redis-16379:16379 c-redis-16380:16380 
+c-redis-16381:16381 c-redis-16382:16382 c-redis-16383:16383 
+c-redis-16384:16384
+```
+
+```vim
+docker exec -it c-redis-16379 redis-cli -p 16379 create -a zxwin --cluster --cluster-replicas 1 172.18.0.8:16379 172.18.0.10:16380 172.18.0.11:16381 172.18.0.12:16382 172.18.0.13:16383 172.18.0.14:16384
 ```

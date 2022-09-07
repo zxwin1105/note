@@ -131,8 +131,6 @@ hlen KEY
 
 #  删除一个或多个hash属性
 hdel KEY FIELD [FIELD...]
-
-
 ```
 
 ### 1.4 set类型
@@ -177,7 +175,6 @@ sintersotre destination KEY1 [KEY2]
 sunion KEY1 [KEY2]
 # 返回并集存储在新集合中
 sunionstory destination KEY1 [KEY2]
-
 ```
 
 ### 1.5 sorted set类型
@@ -250,8 +247,6 @@ rdbcompression yes
 - save命令：redis-cli 执行save命令，阻塞式的
 
 - bgsave命令：redis-cli 执行bgsave命令，非阻塞式的
-
-
 
     save命令的执行会阻塞redis主进程，影响其他数据操作，如果数据量过大，等待时间较长，不推荐使用；执行bgsave命令时redis主进程会fork一个进程（极少时间的阻塞），之后持久化操作都由fork的进程完成。
 
