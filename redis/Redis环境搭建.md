@@ -307,8 +307,6 @@ docker run --name=sentinel-redis-16382 \
 
 配置文件模板
 
-
-
 ```vim
 daemonize no
 
@@ -350,7 +348,6 @@ done
 创建容器
 
 ```shell
-
 for port in $(seq 16390 16395); do \
     docker run --name c-redis-${port} -p ${port}:6379 \
     -itd --privileged=true --net host \
