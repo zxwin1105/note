@@ -305,68 +305,57 @@ docker run --name=sentinel-redis-16382 \
 
 #### 4.1 配置文件
 
+配置文件模板
 
 
-```shell
-docker run --name=c-redis-16379 \
--p 16379:6379  --privileged=true --ip 172.18.0.8 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16379:/data \
--v /tmp/volume/redis/conf/cluster/redis-16379.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16380 \
--p 16380:6379  --privileged=true --ip 172.18.0.10 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16380:/data \
--v /tmp/volume/redis/conf/cluster/redis-16380.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16381 \
--p 16381:6379  --privileged=true --ip 172.18.0.11 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16381:/data \
--v /tmp/volume/redis/conf/cluster/redis-16381.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16382 \
--p 16382:6379  --privileged=true --ip 172.18.0.12 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16382:/data \
--v /tmp/volume/redis/conf/cluster/redis-16382.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16383 \
--p 16383:6379  --privileged=true --ip 172.18.0.13 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16383:/data \
--v /tmp/volume/redis/conf/cluster/redis-16383.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16384 \
--p 16384:6379  --privileged=true --ip 172.18.0.14 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16384:/data \
--v /tmp/volume/redis/conf/cluster/redis-16384.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker exec -it c-redis-16379 redis-cli create -a zxwin --cluster
---cluster-replicas 1 172.18.0.8:16379 172.18.0.10:16380 172.18.0.11:16381 172.18.0.12:16382 172.18.0.13:16383 172.18.0.14:16384
-```
 
 ```vim
-docker exec -it c-redis-16379 redis-cli - create -a zxwin --cluster
---cluster-replicas 1 c-redis-16379:16379 c-redis-16380:16380 
-c-redis-16381:16381 c-redis-16382:16382 c-redis-16383:16383 
-c-redis-16384:16384
+daemonize no
+
+port ${PORT}
+
+pidfile /var/run/redis_${PORT}.pid
+
+dir /dat
+
+# 集群配置
+cluster-enabled yes
+cluster-config-file node-${PORT}.conf
+cluster-node-timeout 10000
+# 集群节点 IP，填写宿主机的 IP
+cluster-announce-ip 192.168.56.11
+# 集群节点映射端口
+cluster-announce-port ${PORT}
+# cluster-announce-bus-port ${PORT}
+
+# 关闭保护模式
+protected-mode no
+
+appendonly yes
+
+# 设置密码 访问redis的密码
+requirepass zxwin
+
+# 集群节点之间，访问的密码
+masterauth zxwin
 ```
 
-```vim
-docker exec -it c-redis-16379 redis-cli -p 16379 create -a zxwin --cluster --cluster-replicas 1 172.18.0.8:16379 172.18.0.10:16380 172.18.0.11:16381 172.18.0.12:16382 172.18.0.13:16383 172.18.0.14:16384
+```shell
+for port in $(seq 16390 16395); do \
+    touch redis-${port}.conf &&
+    PORT=${port} envsubst <redis-cluster.tmpl> redis-${port}.conf; \
+done
+```
+
+创建容器
+
+```shell
+
+for port in $(seq 16390 16395); do \
+    docker run --name c-redis-${port} -p ${port}:6379 \
+    -itd --privileged=true --net host \
+    -v /tmp/volume/redis/conf/cluster/redis-${port}.conf:/etc/redis/redis.conf \
+    -v /tmp/volume/redis/data/cluster/${port}:/data \
+    redis:latest redis-server /etc/redis/redis.conf; \
+done
 ```
