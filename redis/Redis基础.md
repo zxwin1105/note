@@ -225,7 +225,7 @@ zrem KEY MEMBER [MEMBER]
 
 ```vim
 # 持久化数据存储目录
-data ./data
+data /data
 
 # rdb存储文件名
 dbfilename dump.rdb

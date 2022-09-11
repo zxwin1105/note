@@ -305,8 +305,6 @@ docker run --name=sentinel-redis-16382 \
 
 #### 4.1 配置文件
 
-
-
 ```shell
 docker run --name=c-redis-16379 \
 -p 16379:6379  --privileged=true --ip 172.18.0.8 --net redis-ms-network \
