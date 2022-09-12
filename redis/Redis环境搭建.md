@@ -294,77 +294,125 @@ docker run --name=sentinel-redis-16382 \
 
     Redis集群模式最少需要配置3个小集群，每个小集群是一个主从模式。集群模式环境如下：
 
-| 集群  | 地址          | 端口    |
-| --- | ----------- | ----- |
-| 主从一 | 172.18.0.8  | 16379 |
-| 主从一 | 172.18.0.8  | 16380 |
-| 主从二 | 172.18.0.9  | 16379 |
-| 主从二 | 172.18.0.9  | 16380 |
-| 主从三 | 172.18.0.10 | 16379 |
-| 主从三 | 172.18.0.10 | 16380 |
+| 集群  | 地址    | 端口    |
+| --- | ----- | ----- |
+| 1   | 宿主机ip | 16390 |
+| 2   | 宿主机ip | 16391 |
+| 3   | 宿主机ip | 16392 |
+| 4   | 宿主机ip | 16393 |
+| 5   | 宿主机ip | 16394 |
+| 6   | 宿主机ip | 16395 |
 
-#### 4.1 配置文件
-
-```shell
-docker run --name=c-redis-16379 \
--p 16379:6379  --privileged=true --ip 172.18.0.8 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16379:/data \
--v /tmp/volume/redis/conf/cluster/redis-16379.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16380 \
--p 16380:6379  --privileged=true --ip 172.18.0.10 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16380:/data \
--v /tmp/volume/redis/conf/cluster/redis-16380.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16381 \
--p 16381:6379  --privileged=true --ip 172.18.0.11 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16381:/data \
--v /tmp/volume/redis/conf/cluster/redis-16381.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16382 \
--p 16382:6379  --privileged=true --ip 172.18.0.12 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16382:/data \
--v /tmp/volume/redis/conf/cluster/redis-16382.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16383 \
--p 16383:6379  --privileged=true --ip 172.18.0.13 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16383:/data \
--v /tmp/volume/redis/conf/cluster/redis-16383.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker run --name=c-redis-16384 \
--p 16384:6379  --privileged=true --ip 172.18.0.14 --net redis-ms-network \
--v /tmp/volume/redis/data/cluster/16384:/data \
--v /tmp/volume/redis/conf/cluster/redis-16384.conf:/etc/redis/redis.conf \
--itd redis:latest redis-server /etc/redis/redis.conf
-```
-
-```shell
-docker exec -it c-redis-16379 redis-cli create -a zxwin --cluster
---cluster-replicas 1 172.18.0.8:16379 172.18.0.10:16380 172.18.0.11:16381 172.18.0.12:16382 172.18.0.13:16383 172.18.0.14:16384
-```
+配置文件模板 redis-cluster.tmpl
 
 ```vim
-docker exec -it c-redis-16379 redis-cli - create -a zxwin --cluster
---cluster-replicas 1 c-redis-16379:16379 c-redis-16380:16380 
-c-redis-16381:16381 c-redis-16382:16382 c-redis-16383:16383 
-c-redis-16384:16384
+daemonize no
+
+port ${PORT}
+
+pidfile /var/run/redis_${PORT}.pid
+
+dir /dat
+
+# 集群配置
+cluster-enabled yes
+cluster-config-file node-${PORT}.conf
+cluster-node-timeout 10000
+# 集群节点 IP，填写宿主机的 IP
+cluster-announce-ip 192.168.56.101
+# 集群节点映射端口
+cluster-announce-port ${PORT}
+# cluster-announce-bus-port ${PORT}
+
+# 关闭保护模式
+protected-mode no
+
+appendonly yes
+
+# 设置密码 访问redis的密码
+requirepass zxwin
+
+# 集群节点之间，访问的密码
+masterauth zxwin
 ```
 
-```vim
-docker exec -it c-redis-16379 redis-cli -p 16379 create -a zxwin --cluster --cluster-replicas 1 172.18.0.8:16379 172.18.0.10:16380 172.18.0.11:16381 172.18.0.12:16382 172.18.0.13:16383 172.18.0.14:16384
+创建配置文件 进入配置文件目录执行
+
+```shell
+for port in $(seq 16390 16395); do \
+    touch redis-${port}.conf &&
+    PORT=${port} envsubst <redis-cluster.tmpl> redis-${port}.conf; \
+done
 ```
+
+创建数据存储目录
+
+```shell
+for port in $(seq 16390 16395);do \
+    mkdir ${port}; \
+done
+
+
+for port in $(seq 16390 16395);do \
+    sed -i  's\11\101\' redis-${port}.conf
+done
+
+```
+
+创建容器
+
+```shell
+for port in $(seq 16390 16395); do \
+    docker run --name c-redis-${port} -p ${port}:6379 \
+    -itd --privileged=true --net host \
+    -v /tmp/volume/redis/conf/cluster/redis-${port}.conf:/etc/redis/redis.conf \
+    -v /tmp/volume/redis/data/cluster/${port}:/data \
+    redis:7.0.4 redis-server /etc/redis/redis.conf; \
+done
+```
+
+此时只是创建并启动了6个redis服务，但是他们还没有构成集群，执行一下命令构建集群。
+
+```shell
+docker exec -it c-redis-16390 redis-cli -p 16390 \
+-a zxwin --cluster create --cluster-replicas 1 \
+192.168.56.101:16390 192.168.56.101:16391 192.168.56.101:16392 \
+192.168.56.101:16393 192.168.56.101:16394 192.168.56.101:16395
+```
+
+一下是输入命令后，redis对集群的分片计划，如果同意输入yes
+
+```shell
+Warning: Using a password with '-a' or '-u' option on the command line interface may not be safe.
+>>> Performing hash slots allocation on 6 nodes...
+Master[0] -> Slots 0 - 5460
+Master[1] -> Slots 5461 - 10922
+Master[2] -> Slots 10923 - 16383
+Adding replica 192.168.56.101:16394 to 192.168.56.101:16390
+Adding replica 192.168.56.101:16395 to 192.168.56.101:16391
+Adding replica 192.168.56.101:16393 to 192.168.56.101:16392
+>>> Trying to optimize slaves allocation for anti-affinity
+[WARNING] Some slaves are in the same host as their master
+M: 0f2ae064f630040d5fee37ce70066dd636cbfb09 192.168.56.101:16390
+   slots:[0-5460] (5461 slots) master
+M: 95c2d5c234f07ffa067ea4d82d299b7623a97b55 192.168.56.101:16391
+   slots:[5461-10922] (5462 slots) master
+M: acbc99a7f50e1b11c65ae3b184e0ece6da315c3c 192.168.56.101:16392
+   slots:[10923-16383] (5461 slots) master
+S: 55fc546b4b58685ae29129a548afbe4a59905a35 192.168.56.101:16393
+   replicates acbc99a7f50e1b11c65ae3b184e0ece6da315c3c
+S: 86821c772434c878f1ed91b414a2f3f19c2458a0 192.168.56.101:16394
+   replicates 0f2ae064f630040d5fee37ce70066dd636cbfb09
+S: 862feb247e9b820927d909daf9493c8e754ba634 192.168.56.101:16395
+   replicates 95c2d5c234f07ffa067ea4d82d299b7623a97b55
+Can I set the above configuration? (type 'yes' to accept): yes
+```
+
+进入集群
+
+```shell
+docker exec -it c-redis-16390 redis-cli -p 16390 \
+-a zxwin -c
+```
+
+查看集群信息 cluster nodes
