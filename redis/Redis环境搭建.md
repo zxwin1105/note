@@ -351,12 +351,6 @@ done
 for port in $(seq 16390 16395);do \
     mkdir ${port}; \
 done
-
-
-for port in $(seq 16390 16395);do \
-    sed -i  's\11\101\' redis-${port}.conf
-done
-
 ```
 
 创建容器
