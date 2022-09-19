@@ -175,4 +175,357 @@ public class WorkQueueProducer {
 
     消费者代码和basic queue完全一样，可以根据业务创建多个消费者同时去处理消息。
 
-### 4.3 发布订阅模式-
+### 4.3 发布订阅模式-Fanout
+
+    fanout是广播模式，消息生产者将消息发送到指定的fanout-exchange，exchange会将消息广播到每一个绑定它的queue中，消息会被重复消费。
+
+![PubSbu-Fanout](../picture/mq/PubSub-fanout.png)
+
+    生产者实例：
+
+```java
+public class FanoutExchangeProducer {
+
+    public static final String WEATHER_EXCHANGE_FANOUT = "weather_exchange_fanout";
+    public void sendFanout() throws IOException, TimeoutException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+  
+        String message = "today weather: stream";
+        // 消息发布到指定exchange
+        channel.basicPublish(WEATHER_EXCHANGE_FANOUT,"",null,message.getBytes());
+            
+        channel.close();
+        connection.close();
+    }
+}
+```
+
+    消费者实例：
+
+```java
+// baidu consumer
+@Slf4j
+public class BaiduWeatherConsumer {
+    public static final String WEATHER_EXCHANGE_FANOUT = "weather_exchange_fanout";
+
+    public void fanoutConsumer() throws IOException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+        channel.queueDeclare("baidu_weather",false,false,false,null);
+        // 队列绑定交换机
+        channel.queueBind("baidu_weather",WEATHER_EXCHANGE_FANOUT,"");
+        channel.basicConsume("baidu_weather",false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("baidu get weather info:{}",new String(body));
+                // 确认消息
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+    }
+}
+
+// gridsum consumer
+@Slf4j
+public class GridsumWeatherConsumer {
+    public static final String WEATHER_EXCHANGE_FANOUT = "weather_exchange_fanout";
+
+    public void fanoutConsumer() throws IOException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+        channel.queueDeclare("gridsum_weather",false,false,false,null);
+        // 队列绑定交换机
+        channel.queueBind("gridsum_weather",WEATHER_EXCHANGE_FANOUT,"");
+        channel.basicConsume("gridsum_weather",false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("gridsum get weather info:{}",new String(body));
+                // 确认消息
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+
+    }
+}
+```
+
+### 4.4 发布订阅模式-Direct
+
+    Direct模型需要一个routingKey，生产者将消息发送到指定的exchage并指定一个routingKey，在创建queue后，给queue绑定exchange时，可以指定一个routingKey，只有与exchagne中消息的routingkey一致时，消息才会被消费。
+
+![PubSub-dirct](../picture/mq/PubSub-direct.png)
+
+    生产者实例：
+
+```java
+@Slf4j
+public class DirectExchangeProducer {
+
+    public static final String COLOR_EXCHANGE_ROUTING = "color_exchange_routing";
+
+    public static final Random random = new Random();
+    public void sendDirect() throws IOException, TimeoutException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+        // 定义routingKeys
+        String[] colors = {"yellow","pink","blue"};
+        // 批量发送消息
+        for (int i = 0; i < 100; i++) {
+            // 随机获取routingKey
+            int index = random.nextInt(3);
+            String message = "color is " + colors[index] + ":"+i;
+            channel.basicPublish(COLOR_EXCHANGE_ROUTING,colors[index],null,message.getBytes());
+        }
+        channel.close();
+        connection.close();
+    }
+}close();
+    }
+}
+```
+
+    消费者实例：
+
+```java
+// 队列绑定routingKey=yellow
+@Slf4j
+public class YellowConsumer {
+
+    public static final String COLOR_EXCHANGE_ROUTING = "color_exchange_routing";
+
+    public void directQueue() throws IOException, TimeoutException {
+        Connection rabbitConnection = RabbitConnection.getRabbitConnection();
+        Channel channel = rabbitConnection.createChannel();
+        final String queueName = "yellow_que", routingKey = "yellow";
+        channel.queueDeclare(queueName,false,false,false,null);
+        channel.queueBind(queueName,COLOR_EXCHANGE_ROUTING,routingKey,null);
+
+        channel.basicConsume(queueName,false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("routing queue:{},get message: {}",queueName,new String(body));
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+
+    }
+}
+
+// 队列绑定routingKey=pink
+@Slf4j
+public class PinkConsumer {
+
+    public static final String COLOR_EXCHANGE_ROUTING = "color_exchange_routing";
+
+    public void directQueue() throws IOException, TimeoutException {
+        Connection rabbitConnection = RabbitConnection.getRabbitConnection();
+        Channel channel = rabbitConnection.createChannel();
+        final String queueName = "pink_que", routingKey = "pink";
+        channel.queueDeclare(queueName,false,false,false,null);
+        channel.queueBind(queueName,COLOR_EXCHANGE_ROUTING,routingKey,null);
+
+        channel.basicConsume(queueName,false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("routing queue:{},get message: {}",queueName,new String(body));
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+
+    }
+}
+```
+
+### 4.5 发布订阅模式-Topic
+
+    topic模式是在direct模式上增加了模糊匹配routingKey，假如一个消费者绑定一个queue需要消费多个routing，就需要给这个队列绑定多个routingKey，相对比较麻烦。这时可以使用Topic提供的模糊匹配routingKey。
+
+    topic模式提供了两种模糊匹配方法：
+
+- #：代表任意多个单词
+
+- *：代表任意一个单词
+
+> 每个单词之间默认通过` . `进行分隔
+
+![PubSbu-topic](../picture/mq/PubSub-topic.png)
+
+    现在记录了不同城市，最近5天的天气情况，通过routingKey与天气情况对应存储，将消息发送到exchange（routingKey格式：weather.城市.日期）。现在有两个队列，一个队列需要读取西安最近5天的天气，一个队列需要读取每个城市15号的天气。
+
+    routing对应类
+
+```java
+public class WeatherRouting {
+    /** exchange名称 */
+    public static final String WEATHER_EXCHANGE_ROUTING = "weather_exchange_routing";
+
+    public static final Map<String,String> WEATHER_MAP = new HashMap<>();
+
+    static {
+        WEATHER_MAP.put("weather.xian.20220915","stream");
+        WEATHER_MAP.put("weather.xian.20220914","wind");
+        WEATHER_MAP.put("weather.xian.20220913","rain");
+        WEATHER_MAP.put("weather.xian.20220912","sun");
+        WEATHER_MAP.put("weather.xian.20220911","sun");
+
+        WEATHER_MAP.put("weather.beijing.20220915","wind");
+        WEATHER_MAP.put("weather.beijing.20220914","wind");
+        WEATHER_MAP.put("weather.beijing.20220913","rain");
+        WEATHER_MAP.put("weather.beijing.20220912","rain");
+        WEATHER_MAP.put("weather.beijing.20220911","sun");
+
+        WEATHER_MAP.put("weather.guangzhou.20220915","wind");
+        WEATHER_MAP.put("weather.guangzhou.20220914","rain");
+        WEATHER_MAP.put("weather.guangzhou.20220913","rain");
+        WEATHER_MAP.put("weather.guangzhou.20220912","sun");
+        WEATHER_MAP.put("weather.guangzhou.20220911","rain");
+    }
+
+```
+
+    生产者实例：
+
+```java
+@Slf4j
+public class TopicExchangeProducer {
+
+    public void topic() throws IOException, TimeoutException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+       
+        // 获取所有的WeatherRouting
+        Map<String, String> weatherMap = WeatherRouting.WEATHER_MAP;
+        Set<Map.Entry<String, String>> entries = weatherMap.entrySet();
+        for (Map.Entry<String, String> entry : entries) {
+            String message = entry.getKey() + entry.getValue();
+            log.info("send:{}", entry.getKey() + ":" + entry.getValue());
+            channel.basicPublish(WeatherRouting.WEATHER_EXCHANGE_ROUTING, entry.getKey(), true, null, message.getBytes());
+        }
+    }
+}
+```
+
+    生产者实例：
+
+```java
+// 获取西安最近5天的天气
+@Slf4j
+public class XianWeatherConsumer {
+
+    public void xianWeather() throws IOException, TimeoutException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+        // routingKey 这里使用*模糊匹配日期，能匹配到所有xian.*的消息
+        String routingKey = "weather.xian.*";
+        String queueName = "weather_xian";
+
+        channel.queueDeclare(queueName,false,false,false,null);
+        channel.queueBind(queueName, WeatherRouting.WEATHER_EXCHANGE_ROUTING,routingKey);
+        channel.basicConsume(queueName,false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("xian weather get message:{}",new String(body));
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+    }
+}
+
+// 获取所有城市20220915日天气消息
+@Slf4j
+public class DateWeatherConsumer {
+    public void dateWeather() throws IOException, TimeoutException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+        // routingKey 这里使用*匹配所有城市20220915的天气
+        String routingKey = "weather.*.20220915";
+        String queueName = "weather_date";
+        channel.queueDeclare(queueName,false,false,false,null);
+        channel.queueBind(queueName, WeatherRouting.WEATHER_EXCHANGE_ROUTING,routingKey);
+        channel.basicConsume(queueName,false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("xian weather get message:{}",new String(body));
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+    }
+
+    public static void main(String[] args) throws IOException, TimeoutException {
+        new DateWeatherConsumer().dateWeather();
+    }
+}
+
+// 获取所有城市 所有日期的天气消息
+
+@Slf4j
+public class AllWeatherConsumer {
+    public void AllWeather() throws IOException {
+        Connection connection = RabbitConnection.getRabbitConnection();
+        Channel channel = connection.createChannel();
+        // routingKey 使用#匹配多个单词，这里匹配了所有城市所有日期天气 
+        String routingKey = "weather.#";
+        String queueName = "weather_all";
+        channel.queueDeclare(queueName,false,false,false,null);
+        channel.queueBind(queueName, WeatherRouting.WEATHER_EXCHANGE_ROUTING,routingKey);
+        channel.basicConsume(queueName,false,new DefaultConsumer(channel){
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                log.info("xian weather get message:{}",new String(body));
+                channel.basicAck(envelope.getDeliveryTag(),false);
+            }
+        });
+    }
+
+    public static void main(String[] args) throws IOException {
+        new AllWeatherConsumer().AllWeather();
+    }
+}
+```
+
+## 5 SpringBoot整合RabbitMq
+
+    引入依赖
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-amqp</artifactId>
+</dependency>
+```
+
+    创建application.yaml配置文件
+
+```yaml
+server:
+  port: 15671
+spring:
+  rabbitmq:
+    port: 5672
+    username: rabbit
+    password: rabbit
+    virtual-host: /
+    host: 192.**.*.*
+
+```
+
+    
+
+## 6 高级特性-消息可靠性投递
+
+    在一些领域会要求消息的高可靠性，要求消息百分百被确认，不能有丢失，就要求MQ有可靠的消息确认机制。
+
+### 6.1 RabbitMq消息发送机制
+
+    RabbitMq中有exchange的概念，生产者消息首先会发送到exchange，再由exchange路由到对应的queue，最后由消费者去消费。
+
+
+
+    RabbitMQ提供了消息监听器，确保消息发送成功。RabbitMQ中提供了两种监听器：
+
+- confirmListener：confirm监听器，用于确保消息从客户端发送到exchange的过程。
+
+- returnListener：return监听器，用于确保消息从exchange发送到queue的过程。
+
+- ShutdownListener：监听关闭
