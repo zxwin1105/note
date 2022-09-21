@@ -190,11 +190,11 @@ public class FanoutExchangeProducer {
     public void sendFanout() throws IOException, TimeoutException {
         Connection connection = RabbitConnection.getRabbitConnection();
         Channel channel = connection.createChannel();
-  
+
         String message = "today weather: stream";
         // 消息发布到指定exchange
         channel.basicPublish(WEATHER_EXCHANGE_FANOUT,"",null,message.getBytes());
-            
+
         channel.close();
         connection.close();
     }
@@ -381,7 +381,6 @@ public class WeatherRouting {
         WEATHER_MAP.put("weather.guangzhou.20220912","sun");
         WEATHER_MAP.put("weather.guangzhou.20220911","rain");
     }
-
 ```
 
     生产者实例：
@@ -393,7 +392,7 @@ public class TopicExchangeProducer {
     public void topic() throws IOException, TimeoutException {
         Connection connection = RabbitConnection.getRabbitConnection();
         Channel channel = connection.createChannel();
-       
+
         // 获取所有的WeatherRouting
         Map<String, String> weatherMap = WeatherRouting.WEATHER_MAP;
         Set<Map.Entry<String, String>> entries = weatherMap.entrySet();
@@ -507,25 +506,4 @@ spring:
     password: rabbit
     virtual-host: /
     host: 192.**.*.*
-
 ```
-
-    
-
-## 6 高级特性-消息可靠性投递
-
-    在一些领域会要求消息的高可靠性，要求消息百分百被确认，不能有丢失，就要求MQ有可靠的消息确认机制。
-
-### 6.1 RabbitMq消息发送机制
-
-    RabbitMq中有exchange的概念，生产者消息首先会发送到exchange，再由exchange路由到对应的queue，最后由消费者去消费。
-
-
-
-    RabbitMQ提供了消息监听器，确保消息发送成功。RabbitMQ中提供了两种监听器：
-
-- confirmListener：confirm监听器，用于确保消息从客户端发送到exchange的过程。
-
-- returnListener：return监听器，用于确保消息从exchange发送到queue的过程。
-
-- ShutdownListener：监听关闭
