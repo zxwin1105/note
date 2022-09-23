@@ -122,7 +122,7 @@ public void sendAndConfirm() {
     }
 ```
 
-## 2 消息持久化
+### 1.2 消息持久化
 
     rabbitMq中exchange、queue、message内容都是存储在内存中的。如果rabbitMq重启，宕机后内容会丢失。因此，rabbitMq提供了对于exchange、queue、message的持久化功能。
 
@@ -159,7 +159,7 @@ Message message = MessageBuilder.withBody("durable".getBytes())
 
     默认情况下使用springAMQP所有的exchange、queue、message都是开启持久化的。
 
-## 3 消费者确认机制
+### 1.3 消费者确认机制
 
     RabbitMq支持消费者确认机制，消费者处理消息后可以向MQ发送ack回执，MQ收到了ack回执才会删除该消息。SpringAMQP运行配置三种确认模式：
 
@@ -178,8 +178,6 @@ spring:
       simple:
         acknowledge-mode: auto
 ```
-
-
 
     RabbitMq支持消费者确认机制，默认情况下rabbitMq会自动确认消息，向MQ发送ack，MQ收到ack后才会删除消息。也控制配置手动消息确认
 
@@ -225,7 +223,7 @@ public class RabbitMqListener {
 }
 ```
 
-## 4 失败重试机制
+### 1.4 失败重试机制
 
     在消费者确认机制中，如果消费者出现了异常，消息会不断requeue到队列重新排队，如果一直出现异常，会导致无限排队，cpu增加压力。 
 
@@ -253,3 +251,209 @@ spring:
 - ImmediateRequeueMessageRecoverer：重试耗尽后，返回nack，消息重新入队
 
 - RepublishMessageRecoverer：重试耗尽后，将失败消息投递到指定的交换机
+
+    RepublishMessageRecoverer工作机制图：
+
+![republishMessage](../picture/mq/republisherMessage.png)
+
+    定义失败策略方法，以RepublishMessageRecoverer为例，通过spring自动装配原理，自定义一个MessageRecoverer Bean去覆盖默认的MessageRecoverer Bean。
+
+1. 定义error-exchange和erro-queue
+
+```java
+public static final String ERROR_EXCHANGE = "error_exchange";
+public static final String ERROR_QUEUE = "error_queue";
+@Bean("errorExchange")
+public Exchange errorExchange(){
+    return ExchangeBuilder.topicExchange(ERROR_EXCHANGE).durable(true).build();
+}
+@Bean("errorQueue")
+public Queue errorQueue(){
+    return QueueBuilder.durable(ERROR_QUEUE).build();
+}
+@Bean("errorBinding")
+public Binding errorBinding(@Qualifier("errorExchange") Exchange exchange,@Qualifier("errorQueue") Queue queue){
+    return BindingBuilder.bind(queue).to(exchange).with("error.#")."error.retry.fail");
+}
+```
+
+2. 配置失败策略
+
+```java
+/**
+ * retry机制耗尽次数后的处理策略
+ * @return MessageRecoverer
+ */
+@Bean
+public MessageRecoverer messageRecoverer(RabbitTemplate rabbitTemplate){
+    return new RepublishMessageRecoverer(rabbitTemplate,ERROR_EXCHANGE,"error.retry.fail");
+}
+```
+
+## 2 延时消息
+
+### 2.1 死信交换机
+
+    **死信**：当一个队列中的消息满足一下任意情况时，可以成为死信（dead letter）：
+
+- 消费者使用basic.reject或者basic.nack声明消费失败，并且消息的requeue参数设置为false。
+
+- 消息是一个过期消息，超时无人消费
+
+- 要投递的队列消息堆积满了，最早的消息肯成为死信
+
+    死信会被MQ抛弃掉，如果该队列配置了`dead-letter-exchange`属性，指定了一个交换机，那么队列中的死信就会被投递到这个交换机中，这个交换机成为**死信交换机**（dead letter exchange DLX）
+
+![DeadLetterExchange](../picture/mq/DeadLetterExchange.png)
+
+    DLX与重试机制失败后的RepublishMessageRecoverer策略很相似，都是将消息投递到另一个交换机中去。其区别在于RepublishMessageRecoverer策略是消费者自己投递的，头顶是需要指定exchange和routingKey；DLX则是由队列投递的，我们在投递消息是指定了`dead-letter-exchange`属性，明确了死信投递的交换机，但是交换机不能存储数据还需要绑定queue，那么exchange怎么知道要路由到那个queue呢？还需要指定属性`dead-letter-routing-key`
+
+    DLX实例：
+
+    创建死信交换机和死信队列
+
+```java
+public static final String DEAD_EXCHANGE = "dead_exchange";
+public static final String DEAD_QUEUE = "dead_queue";
+
+@Bean("deadExchange")
+public Exchange deadExchange(){
+    return ExchangeBuilder.topicExchange(DEAD_EXCHANGE).durable(true).build();
+}
+@Bean("deadQueue")
+public Queue deadQueue(){
+    return QueueBuilder.durable(DEAD_QUEUE).build();
+}
+@Bean("deadBinding")
+public Binding deadBinding(@Qualifier("deadExchange") Exchange exchange,@Qualifier("deadQueue") Queue queue){
+    return BindingBuilder.bind(queue).to(exchange).with("dead.#").noargs();
+}
+```
+
+    创建投递消息的交换机和队列
+
+```java
+@Bean("bootQueue")
+public Queue bootQueue() {
+    return QueueBuilder.durable(BOOT_QUEUE)
+            // 配置死信相关属性
+            .deadLetterExchange("dead_exchange")
+            .deadLetterRoutingKey("dead.boot")
+            .build();
+}
+
+@Bean("bootExchange")
+public Exchange bootExchange() {
+    // durable:是否持久化
+    return ExchangeBuilder.topicExchange(BOOT_EXCHANGE_NAME).durable(true).build();
+}
+
+@Bean("bindBoot")
+public Binding bindBoot(@Qualifier("bootExchange") Exchange exchange, @Qualifier("bootQueue") Queue queue) {
+    return BindingBuilder.bind(queue).to(exchange).with("boot.#").noargs();
+}
+```
+
+    发布消息
+
+```java
+public void sendDeadLetter(){
+    Message message = MessageBuilder.withBody("dead letter".getBytes())
+            .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
+            .build();
+    rabbitTemplate.convertAndSend(RabbitMqConfig.BOOT_EXCHANGE_NAME,"boot.dead",message);
+}
+```
+
+    boot队列监听器
+
+```java
+@RabbitListener(queues = "boot_queue", ackMode = "MANUAL") // 开启手动确认消息
+public void bootConsumer(Message message, Channel channel) throws IOException {
+    long deliveryTag = message.getMessageProperties().getDeliveryTag();
+    log.info("boot message:{}",new String(message.getBody()));
+    // 拒绝消息，会被queue投递到死信队列
+    channel.basicReject(deliveryTag,false);
+}
+```
+
+### 2.2 TTL
+
+    TTL(Time-To-Live)，如果一个队列中的消息在TTL结束后仍没有被消费，则会变成死信，ttl超时分为两种情况：
+
+- 消息所有的queue本身设置了消息存活时间 `x-message-ttl`
+
+- 消息本身设置了存活时间
+
+    利用TTL和死信交换机，可以实现消息的延时消费，如下图所示：
+
+![延时消费](../picture/mq/延时消费.png)
+
+    TTL实例：模拟一个订单超时关闭的场景
+
+    创建orderExchange和orderQueue用于存储订单信息
+
+```java
+@Bean("orderExchange")
+public Exchange orderExchange(){
+    return ExchangeBuilder.topicExchange(ORDER_EXCHANGE).durable(true).build();
+}
+
+@Bean("orderQueue")
+public Queue orderQueue(){
+    return QueueBuilder.durable(ORDER_QUEUE)
+            // 设置队列为ttl 单位ms
+            .ttl(5000)
+            .deadLetterExchange("ttl_exchange")
+            .deadLetterRoutingKey("ttl.order")
+            .build();
+}
+@Bean("orderBinding")
+public Binding orderBinding(@Qualifier("orderExchange") Exchange exchange,@Qualifier("orderQueue") Queue queue){
+    return BindingBuilder.bind(queue).to(exchange).with("order.#").noargs();
+}
+```
+
+    创建死信交换机 ttl-queue，ttl-exchange
+
+```java
+@Bean("ttlExchange")
+public Exchange ttlExchange(){
+    return ExchangeBuilder.topicExchange(TTL_EXCHANGE).durable(true).build();
+}
+@Bean("ttlQueue")
+public Queue ttlQueue(){
+    return QueueBuilder.durable(TTL_QUEUE)
+            .build();
+}
+@Bean("ttlBinding")
+public Binding ttlBinding(@Qualifier("ttlExchange") Exchange exchange,@Qualifier("ttlQueue") Queue queue){
+    return BindingBuilder.bind(queue).to(exchange).with("ttl.#").noargs();
+}
+```
+
+     发送订单消息
+
+```java
+public void sendOrder(){
+    Message message = MessageBuilder.withBody("order-1".getBytes())
+            .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
+            .build();
+    rabbitTemplate.convertAndSend(RabbitMqConfig.ORDER_EXCHANGE,"order.o1",message);
+}
+```
+
+    死信交换机监听
+
+```java
+@RabbitListener(queues = RabbitMqConfig.TTL_QUEUE)
+public void delayConsumer(Message message){
+    log.info("delay message 关闭订单：{}",new String(message.getBody()));
+}
+```
+
+    总结：RabbitMq实现延时消息可以通过给queue设置ttl属性和给message设置ttl属性。如果两个都是设置了，以时间短的为准
+
+### 2.3 DelayExchange
+
+    上述通过DLX+TTL实现了RabbitMQ的延时消息功能，但是实际操作比较麻烦
