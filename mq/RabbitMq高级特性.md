@@ -456,4 +456,92 @@ public void delayConsumer(Message message){
 
 ### 2.3 DelayExchange
 
-    上述通过DLX+TTL实现了RabbitMQ的延时消息功能，但是实际操作比较麻烦
+    上述通过DLX+TTL实现了RabbitMQ的延时消息功能，但是实际操作比较麻烦。我们也可以使用DelayExchange插件实现延时队列。RabbitMq Exchange是不能存储数据的，使用与路由数据到queue中，DelayExchange的作用是让exchange有存储能力，等到延时时间过后将消息路由到指定队列。
+
+   DelayExchange插件安装
+
+1. 从[官网]([Community Plugins — RabbitMQ](https://www.rabbitmq.com/community-plugins.html))下载rabbitmq_delayed_message_exchange插件，注意对应的版本。
+
+2. 将插件拷贝到rabbitmq/plugins目录下` docker cp rabbitmq_delayed_message_exchange-3.10.0.ez dc-rabbitmq:plugins`
+
+3. 进入docker容器`docker exec -it dc-rabbitmq /bin/bash`，进入plugins目录开启插件`rabbitmq-plugins enable rabbitmq_delayed_message_exchange`
+
+4. 重启容器
+
+    使用插件实现延时消息
+
+```java
+// 定义一个具有延时功能的交换机
+@Bean("delayExchange")
+public Exchange delayExchange(){
+    return ExchangeBuilder.topicExchange("delay_exchange")
+            .delayed() // 标记为延时交换机
+            .build();
+}
+// 注解模式
+@RabbitListener(bindings = @QueueBinding(
+        value = @Queue(value = "delayQueue",durable = "true"),
+        exchange = @Exchange(value = "delayExchange",delayed = "true"),
+        key = "delay.plugins"
+))
+public void delayPlugins(Message message){
+    log.info("delay plugins message:{}",new String(message.getBody()));
+}
+```
+
+```java
+ public void sendDelay(){
+     Message message = MessageBuilder.withBody("delay-message".getBytes())
+             .setHeader("x-delay",10000L) // 消息头设置延时
+             .build();
+     rabbitTemplate.convertAndSend("delayExchange","delay.plugins",message);
+ }
+```
+
+> 注意：在使用插件实现延时消息时，消息都会暂存在exchange，会触发消息确认机制，confirm-returns每次都会返回路由失败的错误信息，需要在回调函数中过滤掉delay插件的情况，可以通过判断receivedDelay属性是否有值。
+
+## 3 消息堆积和惰性队列
+
+### 3.1 消息堆积问题
+
+    当生产者发送消息的速度超过消费者的消费能力时，某个时刻队列中的消息堆积会达到队列容量上限。那么最早接收到的消息，可能会成为死信，会被丢弃。这就是消息堆积问题。
+
+    一般解决消息堆积问题的思路：
+
+- 从消费者消费能力解决：
+  
+  - 创建多个消费者消费消息，增大消费者消费能力
+  
+  - 消费者内部使用异步方式处理消息，增加消费者的处理速度，特别是消费者处理速度较慢的情况
+
+- 从队列容量解决：
+  
+  - 可以扩大队列容量，提高消息堆积上限
+
+   从消费者方向解决都需要我们根据实际业务编码解决。从队列容量解决可以使用rabbitMq的惰性队列。
+
+### 3.2 惰性队列
+
+    惰性队列（Lazy Queue）是rabbitMQ3.6.0版本新增特性，惰性队列特点如下：
+
+- 队列接收消息后，消息直接存入磁盘而非内存
+
+- 消费者要消费消息是才会从磁盘中读取并加载进内存
+
+- 支出数百万消息的存储
+
+    要设置一个队列为惰性队列，只需要在声明队列是，指定`x-queue-mode`属性为Lazy，对于运行的队列可以通过命令`rabbitmqctl set_policy Lazy "^lazy-queue$" '{"queue-mode":"lazy"}' --apply-to queues`
+
+## 4 MQ集群
+
+### 4.1 集群分类
+
+    rabbitMq是基于Erlang语言编写的，而Erlang是一个面向并发的语言，天然支持集群模式。RabbitMQ的集群有两种模式：
+
+- 普通集群：分布式集群，将队列分散到集群的各个节点，从而提高整个集群的并发能力
+
+- 镜像集群：主从集群，在普通集群的基础上，添加了主从备份功能，提高集群的数据可用性
+
+    镜像集群支持主从，但是在主从同步上不是强一致的，某些情况下可能有丢失数据的风险。因此RabbitMQ在3.8版本后，推出了**仲裁队列**来代替镜像集群，底层采用Raft协议确保主从数据强一致性。
+
+### 4.2 普通集群

@@ -2,7 +2,7 @@
 
 ## 1. RabbitMQ简介
 
-    rabbitMQ是由rabbit技术公司基于AMQP标准开发的，采用Erlang语言开发， AMQP协议（Advanced Message Queuing Protocol）高级消息队列协议，是一个网络协议。‘
+    rabbitMQ是由rabbit技术公司基于AMQP标准开发的，采用Erlang语言开发， AMQP协议（Advanced Message Queuing Protocol）高级消息队列协议，是一个网络协议。
 
 ## 2. RabbitMQ安装
 
@@ -15,7 +15,7 @@
     pull镜像后，创建并启动容器，使用`docker ps` 查看是否启动成功，如果启动失败使用`docker logs -f container-name` 查看启动日志。 
 
 ```shell
-docker run --name dc-rabbitmq \
+docker run --name dc-rabbitmq --hostname=rabbitmq \
 -p 5672:5672 -p 15672:15672 -itd \
 -e RABBITMQ_DEFAULT_USER=rabbit \
 -e RABBITMQ_DEFAULT_PASS=rabbit \
