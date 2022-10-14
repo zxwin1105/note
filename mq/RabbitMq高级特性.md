@@ -179,7 +179,7 @@ spring:
         acknowledge-mode: auto
 ```
 
-    RabbitMq支持消费者确认机制，默认情况下rabbitMq会自动确认消息，向MQ发送ack，MQ收到ack后才会删除消息。也控制配置手动消息确认
+    RabbitMq支持消费者确认机制，**默认情况下rabbitMq会自动确认消息**，向MQ发送ack，MQ收到ack后才会删除消息。也控制配置手动消息确认
 
 ```yaml
 spring:
