@@ -116,7 +116,7 @@ et
 ./bin/kafka‐consumer‐groups.sh ‐‐bootstrap‐server 192.168.56.11:9092 ‐‐list
 
 # 查看消费组的消费偏移量
-bin/kafka‐consumer‐groups.sh ‐‐bootstrap‐server 192.168.65.60:9092 ‐‐describe ‐‐group testGroup
+./kafka‐consumer‐groups.sh ‐‐bootstrap‐server 192.168.65.11:9092 ‐‐describe ‐‐group testGroup
 ```
 
 # 2 kafka核心架构
@@ -168,5 +168,3 @@ kafka中消息消费模式有两种：一种是单播消费，一种是多播消
 多播消费：一条消息可以被多个消费者消费的模式，实现多播，只需要保证消费者属于不同的消费者即可。
 
 # 3 Java API使用
-
-
