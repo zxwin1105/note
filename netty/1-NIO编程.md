@@ -40,7 +40,7 @@ buffer是用于缓冲读写数据。
 
 - DoubleBuffer
 
-- CharBugger
+- CharBuffer
 
 ### 1.2 Selector
 
@@ -136,7 +136,6 @@ public class BasicUse {
         }
     }
 }
-
 ```
 
 ### 2.2 ByteBuffer内部结构
@@ -177,7 +176,7 @@ allocateDirect()方法返回的类为`java.nio.DirectByteBuffer`，使用的是�
 - 堆内存：读写效率低（多一次拷贝）；会受到GC影响
 
 - 直接内存：读写效率高；不受GC影响；分配内存效率较低
-2.  向buffer中写入数据
+2. 向buffer中写入数据
 
 ```java
 // 2. 向buffer中写入数据
@@ -191,7 +190,7 @@ buffer.put((byte) 0x61);
 - 可以通过channel的read方法向buffer中写入数据
 
 - 也可以调用buffer自己的put方式写入数据。
-3.  从buffer中读取数据
+3. 从buffer中读取数据
 
 ```java
  // 3. 从buffer中获取数据
@@ -310,7 +309,6 @@ public class Unpacking {
         new Unpacking().unpack();
     }
 }
-
 ```
 
 ## 3. NIO文件编程
@@ -562,9 +560,8 @@ public void selector() throws IOException {
 11:44:31.607 [main] DEBUG com.netty.nio.net.nonblock.ServerNonBlock - connected:java.nio.channels.SocketChannel[connected local=/10.200.252.74:8087 remote=/10.200.252.74:4936]
 11:44:31.609 [main] DEBUG com.netty.nio.net.nonblock.ServerNonBlock - connected:null
 Exception in thread "main" java.lang.NullPointerException
-	at com.netty.nio.net.nonblock.ServerNonBlock.selector(ServerNonBlock.java:74)
-	at com.netty.nio.net.nonblock.ServerNonBlock.main(ServerNonBlock.java:27)
-
+    at com.netty.nio.net.nonblock.ServerNonBlock.selector(ServerNonBlock.java:74)
+    at com.netty.nio.net.nonblock.ServerNonBlock.main(ServerNonBlock.java:27)
 ```
 
 异常产生的位置是`SocketChannel socketChannel = channel.accept();`方法返回值为null。
@@ -582,13 +579,13 @@ iterator.remove();
 
 ```java
 Exception in thread "main" java.io.IOException: 远程主机强迫关闭了一个现有的连接。
-	at sun.nio.ch.SocketDispatcher.read0(Native Method)
-	at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:43)
-	at sun.nio.ch.IOUtil.readIntoNativeBuffer(IOUtil.java:223)
-	at sun.nio.ch.IOUtil.read(IOUtil.java:197)
-	at sun.nio.ch.SocketChannelImpl.read(SocketChannelImpl.java:378)
-	at com.netty.nio.net.nonblock.ServerNonBlock.selector(ServerNonBlock.java:82)
-	at com.netty.nio.net.nonblock.ServerNonBlock.main(ServerNonBlock.java:27)
+    at sun.nio.ch.SocketDispatcher.read0(Native Method)
+    at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:43)
+    at sun.nio.ch.IOUtil.readIntoNativeBuffer(IOUtil.java:223)
+    at sun.nio.ch.IOUtil.read(IOUtil.java:197)
+    at sun.nio.ch.SocketChannelImpl.read(SocketChannelImpl.java:378)
+    at com.netty.nio.net.nonblock.ServerNonBlock.selector(ServerNonBlock.java:82)
+    at com.netty.nio.net.nonblock.ServerNonBlock.main(ServerNonBlock.java:27)
 ```
 
 解决方法，处理read()的代码块需要捕获IOException异常，并且取消read时间
@@ -689,3 +686,5 @@ public static void main(String[] args) throws IOException {
 > 16:01:14.105 [main] DEBUG com.netty.nio.net.block.BlockWriteServer - send msg:16106474
 
 可以看到服务端发送了多次，才将数据发送完毕。这里即使设置了SocketChannel为非阻塞模式，但是在循环发送消息时`channel.write()` 仍然是阻塞操作，只有当缓存区准备好才可以继续发送数据。可以使用Selector的wirte事件进行优化。
+
+## 5. 多线程优化
