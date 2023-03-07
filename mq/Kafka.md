@@ -1,4 +1,5 @@
 # 1 kafka搭建常用命令
+
 =======
 
 ## 1.1 kafka单机搭建和配置
@@ -443,7 +444,6 @@ spring:
       # manual:当每一批poll()的数据被消费者监听器处理后，手动调用Acknowledgment.acknowledge()后提交
       # manual_immediate:手动调用acknowledgment.acknowledge()后立即提交
       ack-mode: manual_immediate
-
 ```
 
 3. Producer
@@ -475,7 +475,6 @@ public class Producer {
                 "springboot send kafka message");
     }
 }
-
 ```
 
 4. Consumer

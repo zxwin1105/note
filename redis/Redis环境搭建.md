@@ -70,8 +70,8 @@ auto-aof-rewrite-min-size 64mb
 ```shell
 docker run --name=dc-redis \
 -p 6379:6379 --privileged=true \
--v /volume/redis/data:/data \
--v /volume/redis/conf/redis.conf:/etc/redis/redis.conf \
+-v /docker/volume/redis/data:/data \
+-v /docker/volume/redis/conf/redis.conf:/etc/redis/redis.conf \
 -itd redis:latest redis-server
 ```
 

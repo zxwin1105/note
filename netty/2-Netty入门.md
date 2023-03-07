@@ -49,8 +49,6 @@ public class HelloServer {
                 }).bind(8899);
     }
 }
-
-
 ```
 
 netty实现客户端
@@ -97,24 +95,42 @@ public class HelloClient {
 
 EventLoop（事件循环对象）本质是一个单线程执行器，维护了一个Selector。其线程任务（#run()方法）就是处理Channel上源源不断的IO事件。
 
-
-
 EventLoop继承关系比较复杂：
 
 - 一条线继承自j.u.cScheduleExecutorService，包含了线程池中所有的方法。
 
 - 一条线继承自netty自己的OrderedEventExecutor。
 
-
-
-EventLoopGroup（事件循环组）是一组EventLoop，Channel一般会调用EventLoopGroup的register方法来绑定其中一个EventLoop，后续这个Channel上的IO事件都由EventLoop来处理（保证率IO事件处理室的线程安全）,。
+EventLoopGroup（事件循环组）是一组EventLoop，Channel一般会调用EventLoopGroup的register方法来绑定其中一个EventLoop，后续这个Channel上的IO事件都由EventLoop来处理（保证率IO事件处理室的线程安全）。
 
 ### 3.2 Channel
 
-
-
 ### 3.3 Future & Promise
 
-
-
 ### 3.4 Handler &  Pipeline
+
+### 3.5 ByteBuf
+
+Netty中重新封装了ByteBuffer。ByteBuf默认初始化容量为256kb，支持动态扩容。
+
+1. 关于ByteBuf内存
+
+ByteBuf可以选择使用堆内存和直接内存。
+
+```java
+// 使用直接内存
+ByteBuf buffer0 = ByteBufAllocator.DEFAULT.buffer();
+ByteBuf buffer1 = ByteBufAllocator.DEFAULT.directBuffer();
+// 使用队内存
+ByteBuf buf = ByteBufAllocator.DEFAULT.heapBuffer();
+```
+
+使用直接内存可以少一次复制过程，速度较快，且不需要GC。
+
+2. 关于ByteBuf池化
+
+Netty提供了ByteBuf的池化功能，可以实现对ByteBuf进行重复使用，减少对象创建和回收的过程。在Netty4.1之后默认ByteBuf开启了池化功能。
+
+> 池化功能开关配置：
+> 
+> -Dio.netty.allocator.type={unpooled|pooled}
